@@ -1,0 +1,8 @@
+{
+  "sensors": {
+    "speed": 35,
+    "battery": 82,
+    "terrain": "flat",
+    "temp": 27
+  }
+}
