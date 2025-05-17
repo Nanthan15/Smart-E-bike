@@ -1,19 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from firebase_admin import credentials, db, initialize_app
 from fastapi.middleware.cors import CORSMiddleware
+from concurrent.futures import ThreadPoolExecutor
+from fastapi.responses import JSONResponse
 import asyncio
-import httpx
-import json
+
+from langchain.prompts import PromptTemplate
+from langchain_ollama import OllamaLLM
 
 # Initialize Firebase
-cred = credentials.Certificate("firebase_config.json")  # path to your Firebase service account
+cred = credentials.Certificate("firebase_config.json")
 initialize_app(cred, {
-    'databaseURL': 'https://smart-ebike-f4ba1-default-rtdb.firebaseio.com/'  # Replace with your DB URL
+    'databaseURL': 'https://smart-ebike-f4ba1-default-rtdb.firebaseio.com/'
 })
 
 app = FastAPI()
 
-# CORS setup
+# CORS
 origins = [
     "http://127.0.0.1:5500",
     "http://localhost:5500"
@@ -27,64 +30,63 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔧 Ollama model name
+# Ollama model setup
 LLM_MODEL = "phi"
+llm = OllamaLLM(model=LLM_MODEL, base_url="http://localhost:11434")
 
-@app.get("/realtime-data")
-async def get_data():
+prompt_template = PromptTemplate(
+    input_variables=["speed", "battery", "terrain", "temp"],
+    template=(
+        "You are analyzing data from a smart e-bike.\n"
+        "Sensor readings are:\n"
+        "Speed: {speed} km/h\n"
+        "Battery: {battery}%\n"
+        "Terrain: {terrain}\n"
+        "Temperature: {temp}°C\n"
+        "Give helpful real-time feedback to the rider."
+    )
+)
+chain = prompt_template | llm
+executor = ThreadPoolExecutor()
+
+@app.get("/sensor-data")
+async def get_sensor_data():
+    loop = asyncio.get_event_loop()
+    ref = db.reference("/sensors")
+    data = await loop.run_in_executor(executor, ref.get)
+
+    if not data:
+        raise HTTPException(status_code=404, detail="No sensor data found.")
+    
+    response_data = {
+        "speed": data.get("speed"),
+        "battery": data.get("battery"),
+        "terrain": data.get("terrain"),
+        "temp": data.get("temp")
+    }
+
+    return JSONResponse(content=response_data, headers={"Cache-Control": "no-cache"})
+
+@app.get("/feedback")
+async def get_feedback():
     ref = db.reference("/sensors")
     data = ref.get()
 
     if not data:
-        return {"error": "No sensor data found."}
+        raise HTTPException(status_code=404, detail="No sensor data found.")
 
-    prompt = (
-        f"You are analyzing data from a smart e-bike. "
-        f"Sensor readings are:\n"
-        f"Speed: {data.get('speed')} km/h\n"
-        f"Battery: {data.get('battery')}%\n"
-        f"Terrain: {data.get('terrain')}\n"
-        f"Temperature: {data.get('temp')}°C\n"
-        f"Give helpful real-time feedback to the rider."
-    )
-
-    feedback = "Generating feedback..."
-    try:
-        timeout = httpx.Timeout(90.0, connect=15.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            for attempt in range(3):  # Retry 3 times
-                try:
-                    response = await client.post(
-                        "http://localhost:11434/api/generate",
-                        json={"model": LLM_MODEL, "prompt": prompt, "stream": True}
-                    )
-
-                    # Stream handling
-                    feedback_chunks = []
-                    async for line in response.aiter_lines():
-                        if not line.strip():
-                            continue
-                        try:
-                            chunk_data = json.loads(line)
-                            chunk = chunk_data.get("response")
-                            if chunk:
-                                feedback_chunks.append(chunk)
-                        except Exception as parse_err:
-                            print(f"⚠️ Failed to parse chunk: {parse_err} - Raw line: {line}")
-
-                    feedback = ''.join(feedback_chunks) if feedback_chunks else feedback
-                    break  # Exit retry loop if successful
-                except httpx.ReadTimeout:
-                    print(f"⚠️ Attempt {attempt+1}: Ollama is still loading...")
-                    await asyncio.sleep(5)
-    except Exception as e:
-        print(f"❌ Ollama error: {e}")
-        feedback = "Ollama is not responding. Please try again later."
-
-    return {
-        "speed": data.get("speed"),
-        "battery": data.get("battery"),
-        "terrain": data.get("terrain"),
-        "temp": data.get("temp"),
-        "feedback": feedback.strip()
+    inputs = {
+        "speed": data.get("speed", "unknown"),
+        "battery": data.get("battery", "unknown"),
+        "terrain": data.get("terrain", "unknown"),
+        "temp": data.get("temp", "unknown"),
     }
+
+    try:
+        result = chain.invoke(inputs)
+        feedback = result
+    except Exception as e:
+        print(f"❌ LangChain/Ollama error: {e}")
+        feedback = "Unable to generate feedback at the moment. Please try again later."
+
+    return {"feedback": feedback.strip() if isinstance(feedback, str) else str(feedback)}

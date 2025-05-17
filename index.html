@@ -85,26 +85,46 @@
   </div>
 
   <script>
-    async function fetchData() {
+    async function fetchSensorData() {
       try {
-        const res = await fetch("http://localhost:8000/realtime-data");
+        const res = await fetch("http://localhost:8000/sensor-data", {
+      cache: "no-store"
+  });
+
         const data = await res.json();
 
         document.getElementById("speed").textContent = data.speed + " km/h";
         document.getElementById("battery").textContent = data.battery + "%";
         document.getElementById("terrain").textContent = data.terrain;
         document.getElementById("temp").textContent = data.temp + " °C";
-        document.getElementById("feedback").innerHTML =
-          `<span class="emoji">💡</span> ${data.feedback}`;
       } catch (error) {
-        document.getElementById("feedback").innerHTML =
-          `<span class="emoji">⚠️</span> Error fetching data`;
+        console.error("Error fetching sensor data:", error);
       }
     }
 
-    // Initial fetch + auto-refresh every 5 sec
-    fetchData();
-    setInterval(fetchData, 5000);
+    async function fetchFeedback() {
+      try {
+        const res = await fetch("http://localhost:8000/feedback");
+        const data = await res.json();
+
+        document.getElementById("feedback").innerHTML =
+          `<span class="emoji">💡</span> ${data.feedback}`;
+      } catch (error) {
+        console.error("Error fetching feedback:", error);
+        document.getElementById("feedback").innerHTML =
+          `<span class="emoji">⚠️</span> Error fetching feedback`;
+      }
+    }
+
+    // Faster polling for real-time sensor data
+    setInterval(fetchSensorData, 500);
+
+    // Slower polling for feedback to reduce LLM overhead
+    setInterval(fetchFeedback, 500);
+
+    // Initial calls
+    fetchSensorData();
+    fetchFeedback();
   </script>
 </body>
 </html>
