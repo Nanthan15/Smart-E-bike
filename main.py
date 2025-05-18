@@ -42,7 +42,7 @@ prompt_template = PromptTemplate(
         "Average Battery: {battery}%\n"
         "Most Common Terrain: {terrain}\n"
         "Average Temperature: {temp}°C\n"
-        "Give helpful real-time feedback to the rider based on these aggregated values."
+        "Give helpful real-time feedback to the rider based on these aggregated values and don't give long result keep results short and informative."
     )
 )
 

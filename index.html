@@ -1,167 +1,444 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>🚲 Smart E-Bike Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart E-Bike LCD Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
     body {
       margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #0f172a, #1e293b);
-      color: #e0e7ff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      background: #121212;
+      color: #fff;
+      position: relative;
     }
-    .container {
-      background: rgba(17, 24, 39, 0.9);
-      padding: 35px 45px;
+    
+    /* Feedback Modal Styles */
+    .feedback-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 75%;
+      background: rgba(17, 24, 39, 0.95);
       border-radius: 20px;
-      box-shadow: 0 10px 25px rgba(0, 153, 255, 0.25), inset 0 0 15px rgba(0, 153, 255, 0.15);
-      backdrop-filter: blur(10px);
-      max-width: 480px;
-      width: 90%;
-      text-align: center;
-      animation: slideIn 0.6s ease-out;
+      box-shadow: 0 10px 30px rgba(0, 255, 204, 0.3), inset 0 0 20px rgba(0, 255, 204, 0.2);
+      backdrop-filter: blur(15px);
+      z-index: 1000;
+      padding: 2rem;
+      display: none;
+      animation: fadeIn 0.4s ease-out;
+      max-height: 75vh;
+      overflow-y: auto;
     }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 28px;
-      font-weight: 800;
-      color: #3b82f6;
-      letter-spacing: 1.2px;
-      user-select: none;
-    }
-    .sensor-list {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      margin-bottom: 30px;
-    }
-    .sensor {
-      background: #1e3a8a;
-      border-radius: 14px;
-      padding: 16px 22px;
+    
+    .feedback-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 1.15rem;
-      font-weight: 600;
-      color: #e2e8f0;
-      transition: transform 0.3s ease, background 0.3s ease;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #00ffcc50;
+      padding-bottom: 1rem;
     }
-    .sensor:hover {
-      transform: scale(1.03);
-      background: #2563eb;
-      color: #fff;
+    
+    .feedback-header h2 {
+      margin: 0;
+      font-size: 1.8rem;
+      background: linear-gradient(90deg, #00ffcc, #3366ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
-    .value {
-      color: #93c5fd;
-      font-weight: 700;
-      opacity: 0;
-      animation: fadeIn 0.6s forwards;
+    
+    .close-btn {
+      background: none;
+      border: none;
+      color: #00ffcc;
+      font-size: 1.5rem;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s ease;
+      padding: 0;
     }
-    .feedback-box {
-      margin-top: 15px;
-      background: linear-gradient(135deg, #2563eb, #60a5fa);
-      padding: 20px;
-      border-radius: 16px;
-      font-size: 1.1rem;
-      font-weight: 600;
+    
+    .close-btn:hover {
+      background: rgba(0, 255, 204, 0.2);
+      transform: scale(1.1);
+    }
+    
+    .feedback-content {
+      font-size: 1.2rem;
+      line-height: 1.6;
+      color: #e0e7ff;
+      text-align: center;
+      padding: 1rem;
+    }
+    
+    .feedback-emoji {
+      font-size: 2.5rem;
+      margin-right: 1rem;
+      vertical-align: middle;
+    }
+    
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .feedback-notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #00ffcc, #3366ff);
       color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      box-shadow: 0 5px 15px rgba(0, 255, 204, 0.4);
+      cursor: pointer;
+      z-index: 998;
+      display: none;
+      animation: slideIn 0.5s ease;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      grid-gap: 1rem;
+      padding: 2rem;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .card {
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #00ffcc50;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .vehicle-info, .speedometer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .value {
+      font-size: 2rem;
+      margin-top: 0.5rem;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 1rem;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    .control-card {
+      background: #1e1e1e;
+      padding: 0.75rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #00ffcc50;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .control-card h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+      background: linear-gradient(90deg, #00ffcc, #3366ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .switch {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+
+    .indicator-switches {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .switch input {
+      width: 20px;
+      height: 20px;
+      accent-color: #00ffcc;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+    }
+
+    .top-bar {
+      font-size: 1rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      background: linear-gradient(90deg, #00ffcc, #3366ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+      letter-spacing: 1.5px;
+      margin-bottom: 1rem;
+    }
+
+    h3 {
+      margin: 0.5rem 0;
+      color: #00ffcc;
+    }
+
+    .battery-container {
+      width: 80%;
+      height: 50px;
+      border: 3px solid #00ffcc;
+      border-radius: 8px;
+      position: relative;
+      margin-top: 1rem;
+      overflow: hidden;
+    }
+
+    .battery-level {
+      height: 100%;
+      background: linear-gradient(90deg, #00ffcc, #3366ff);
+      animation: batteryAnimation 2s infinite alternate;
+    }
+
+    .temp-card {
+      position: relative;
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      box-shadow: 0 0 20px rgba(96, 165, 250, 0.6);
-      animation: pulseGlow 3s infinite ease-in-out;
-      min-height: 70px;
-      transition: opacity 0.3s ease-in-out;
-    }
-    .emoji {
-      font-size: 1.5rem;
+      padding: 1.5rem 0;
     }
 
-    @keyframes fadeIn {
-      to {
-        opacity: 1;
-      }
-    }
-    @keyframes pulseGlow {
-      0%, 100% {
-        box-shadow: 0 0 12px #2563eb;
-      }
-      50% {
-        box-shadow: 0 0 30px #60a5fa;
-      }
-    }
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .temp-ring {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #00ffcc, #3366ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
 
-    @media (max-width: 480px) {
-      .container {
-        padding: 25px 20px;
-      }
-      h1 {
-        font-size: 1.5rem;
-      }
-      .sensor {
-        font-size: 1rem;
-      }
-      .feedback-box {
-        font-size: 1rem;
-      }
+    .temp-ring::after {
+      content: '';
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #1e1e1e;
+    }
+
+    .temp-value {
+      position: relative;
+      z-index: 2;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+
+    @keyframes batteryAnimation {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+
+    .battery-percentage {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      line-height: 50px;
+      font-size: 1.2rem;
+      color: #fff;
+    }
+
+    .info-items {
+      display: flex;
+      justify-content: space-around;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .info-item {
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    #container {
+      min-width: 250px;
+      max-width: 350px;
+      height: 300px;
+      margin: 0 auto;
+    }
+
+    label {
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .indicator-icon {
+      font-size: 1.2rem;
+      margin-right: 0.3rem;
     }
   </style>
 </head>
 <body>
-  <div class="container" role="main" aria-label="Smart E-Bike Dashboard">
-    <h1>🚲 Smart E-Bike Dashboard</h1>
+  <div class="dashboard">
+    <!-- Left Panel -->
+    <div class="vehicle-info">
+      <div class="top-bar" id="dateTime">--</div>
+      <h1 style="margin-top: 10px;">Electric Bike</h1>
 
-    <div class="sensor-list" aria-live="polite">
-      <div class="sensor">
-        <span class="label">Speed:</span>
-        <span class="value" id="speed">-- km/h</span>
+      <div class="card" style="width: 270px; height: 220px;">
+        <h3>Battery %</h3>
+        <div class="battery-container">
+          <div class="battery-level" id="batteryLevel" style="width: 0%;"></div>
+          <div class="battery-percentage" id="batteryValue">--%</div>
+        </div>
+
+        <div class="info-items">
+          <div class="info-item">
+            <strong>Max Speed</strong><br/>
+            <span id="maxSpeed">150 km/h</span>
+          </div>
+          <div class="info-item">
+            <strong>Total Distance</strong><br/>
+            <span id="totalDistance">-- km</span>
+          </div>
+          <div class="info-item">
+            <strong>Ride Mode</strong><br/>
+            <span id="rideMode">Eco</span>
+          </div>
+        </div>
       </div>
-      <div class="sensor">
-        <span class="label">Battery:</span>
-        <span class="value" id="battery">-- %</span>
-      </div>
-      <div class="sensor">
-        <span class="label">Terrain:</span>
-        <span class="value" id="terrain">--</span>
-      </div>
-      <div class="sensor">
-        <span class="label">Temperature:</span>
-        <span class="value" id="temp">-- °C</span>
-      </div>
+      <br>
+  
+      <img src="./assests/bike.png" alt="Bike Icon" style="width: 270px; height: auto;" />
     </div>
 
-    <div class="feedback-box" id="feedback" aria-live="polite">
-      <span class="emoji">💡</span> Waiting for feedback...
+    <!-- Center Panel -->
+    <div class="card" style="height: 610px;">
+      <div id="map"></div>
     </div>
+
+    <!-- Right Panel -->
+    <div class="speedometer">
+      <div class="top-bar" id="timeNow">--</div>
+
+      <div class="card" style="height: 300px;">
+        <div id="container"></div>
+      </div>
+
+      <!-- Temperature with new design -->
+      <div class="card" style="
+    width: 200px;">
+        <h3>Temperature</h3>
+        <div class="temp-card">
+          <div class="temp-ring">
+            <div class="temp-value" id="tempValue">--°C</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Row - Indicators and Headlight in one row -->
+      <div class="controls-row">
+        <!-- Indicators Card -->
+        <div class="control-card">
+          <h3>Indicators</h3>
+          <div class="indicator-switches">
+            <label><span class="indicator-icon">◀</span><input type="checkbox" id="leftIndicator" /></label>
+            <label><input type="checkbox" id="rightIndicator" /><span class="indicator-icon">▶</span></label>
+          </div>
+        </div>
+
+        <!-- Headlight Card -->
+        <div class="control-card">
+          <h3>Headlight</h3>
+          <div class="switch">
+            <label>Off<input type="checkbox" id="headlightSwitch" />On</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Modal -->
+  <div class="overlay" id="overlay"></div>
+  <div class="feedback-modal" id="feedbackModal">
+    <div class="feedback-header">
+      <h2>🚲 E-Bike Feedback</h2>
+      <button class="close-btn" id="closeModal">✕</button>
+    </div>
+    <div class="feedback-content" id="feedbackContent">
+    </div>
+  </div>
+
+  <!-- Feedback Notification -->
+  <div class="feedback-notification" id="feedbackNotification">
+    <span class="notification-emoji">💬</span>
+    <span>New feedback available!</span>
   </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- jQuery and Highcharts -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyDSiyEn5IlCBL7hSzKR8pZXbQwPQqsfAbA",
       authDomain: "smart-ebike-f4ba1.firebaseapp.com",
@@ -172,52 +449,163 @@
       appId: "1:117999975886:web:c509ff6bb1c65c3ed8bf9f"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Update UI with animation
-    function updateValue(id, text) {
-      const el = document.getElementById(id);
-      if (el.textContent !== text) {
-        el.style.opacity = 0;
-        setTimeout(() => {
-          el.textContent = text;
-          el.style.opacity = 1;
-        }, 150);
-      }
-    }
+    const updateText = (id, val) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = val;
+    };
 
-    // Listen for real-time updates from Firebase
-    db.ref("/sensors").on("value", (snapshot) => {
-      const data = snapshot.val() || {};
-      updateValue("speed", (data.speed ?? "--") + " km/h");
-      updateValue("battery", (data.battery ?? "--") + " %");
-      updateValue("terrain", data.terrain ?? "--");
-      updateValue("temp", (data.temp ?? "--") + " °C");
+    const map = L.map('map').setView([12.9716, 77.5946], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    let marker = L.marker([12.9716, 77.5946]).addTo(map);
+
+    let speedChart;
+
+    db.ref('/sensors').on('value', snapshot => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      updateText('tempValue', data.temp + ' °C');
+      updateText('batteryValue', data.battery + ' %');
+      document.getElementById('batteryLevel').style.width = data.battery + '%';
+
+      document.getElementById('leftIndicator').checked = !!data.leftIndicator;
+      document.getElementById('rightIndicator').checked = !!data.rightIndicator;
+      document.getElementById('headlightSwitch').checked = !!data.headlight;
+
+      if (data.lat && data.lng) {
+        const latlng = [data.lat, data.lng];
+        marker.setLatLng(latlng);
+        map.setView(latlng, 14);
+      }
+
+      if (speedChart && speedChart.series[0]) {
+        speedChart.series[0].points[0].update(data.speed);
+      }
+
+      // New values
+      updateText('maxSpeed', (data.maxSpeed || 150) + ' km/h');
+      updateText('totalDistance', (data.totalDistance || '--') + ' km');
+      updateText('rideMode', data.rideMode || 'Eco');
     });
 
-    // Fetch feedback from FastAPI backend
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById('dateTime').textContent = now.toDateString();
+      document.getElementById('timeNow').textContent = now.toLocaleTimeString();
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    $(function () {
+      speedChart = Highcharts.chart("container", {
+        chart: {
+          type: "gauge",
+          backgroundColor: '#1e1e1e'
+        },
+        title: {
+          text: "Speedometer",
+          style: { color: "#00ffcc" }
+        },
+        pane: {
+          startAngle: -150,
+          endAngle: 150,
+          background: [{
+            backgroundColor: "#2b2b2b",
+            borderWidth: 0,
+            outerRadius: "100%"
+          }]
+        },
+        yAxis: {
+          min: 0,
+          max: 200,
+          tickInterval: 20,
+          lineColor: "#00ffcc",
+          lineWidth: 2,
+          tickColor: "#00ffcc",
+          labels: {
+            style: { color: "#ffffff" }
+          },
+          title: {
+            text: "km/h",
+            style: { color: "#00ffcc" }
+          },
+          plotBands: [
+            { from: 0, to: 80, color: "#00ffcc" },
+            { from: 80, to: 140, color: "#ffaa00" },
+            { from: 140, to: 200, color: "#ff0033" }
+          ]
+        },
+        series: [{
+          name: "Speed",
+          data: [0],
+          tooltip: { valueSuffix: " km/h" }
+        }]
+      });
+    });
+    
+    // Feedback Modal Functionality
+    const overlay = document.getElementById('overlay');
+    const feedbackModal = document.getElementById('feedbackModal');
+    const feedbackContent = document.getElementById('feedbackContent');
+    const closeModal = document.getElementById('closeModal');
+    const feedbackNotification = document.getElementById('feedbackNotification');
+    
+    // Close modal when close button is clicked
+    closeModal.addEventListener('click', () => {
+      feedbackModal.style.display = 'none';
+      overlay.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    overlay.addEventListener('click', () => {
+      feedbackModal.style.display = 'none';
+      overlay.style.display = 'none';
+    });
+    
+    // Show modal when notification is clicked
+    feedbackNotification.addEventListener('click', () => {
+      feedbackModal.style.display = 'block';
+      overlay.style.display = 'block';
+      feedbackNotification.style.display = 'none';
+    });
+    
+    // Fetch and display feedback
     async function fetchFeedback() {
       try {
         const res = await fetch("http://localhost:8000/feedback", { cache: "no-store" });
         if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
-        const fbEl = document.getElementById("feedback");
-        fbEl.style.opacity = 0;
-        setTimeout(() => {
-          fbEl.innerHTML = `<span class="emoji">💡</span> ${data.feedback}`;
-          fbEl.style.opacity = 1;
-        }, 150);
+        
+        if (data && data.feedback && data.feedback !== "Waiting for feedback...") {
+          // Update modal content
+          feedbackContent.innerHTML = `<span class="feedback-emoji">💡</span> ${data.feedback}`;
+          
+          // Show notification
+          feedbackNotification.style.display = 'flex';
+          
+          // Auto-show modal for first feedback
+          if (feedbackModal.dataset.shown !== 'true') {
+            feedbackModal.style.display = 'block';
+            overlay.style.display = 'block';
+            feedbackModal.dataset.shown = 'true';
+          }
+        }
       } catch (err) {
         console.error("Feedback fetch error:", err);
-        document.getElementById("feedback").innerHTML = `<span class="emoji">⚠️</span> Error fetching feedback`;
+        feedbackContent.innerHTML = `<span class="feedback-emoji">⚠️</span> Error fetching feedback`;
       }
     }
-
+    
     // Run feedback fetch every 10 seconds
     fetchFeedback();
-    setInterval(fetchFeedback, 10000);
+    setInterval(fetchFeedback, 50000);
+  </script>
   </script>
 </body>
 </html>
