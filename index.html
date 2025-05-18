@@ -1,130 +1,223 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Smart E-Bike Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>🚲 Smart E-Bike Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f4f4;
-      color: #333;
       margin: 0;
       padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #e0e7ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
-
     .container {
-      max-width: 600px;
-      margin: 50px auto;
-      background: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
+      background: rgba(17, 24, 39, 0.9);
+      padding: 35px 45px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0, 153, 255, 0.25), inset 0 0 15px rgba(0, 153, 255, 0.15);
+      backdrop-filter: blur(10px);
+      max-width: 480px;
+      width: 90%;
       text-align: center;
-      color: #3a3a3a;
+      animation: slideIn 0.6s ease-out;
     }
-
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 28px;
+      font-weight: 800;
+      color: #3b82f6;
+      letter-spacing: 1.2px;
+      user-select: none;
+    }
+    .sensor-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 30px;
+    }
     .sensor {
+      background: #1e3a8a;
+      border-radius: 14px;
+      padding: 16px 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #ddd;
-    }
-
-    .sensor:last-child {
-      border-bottom: none;
-    }
-
-    .label {
+      font-size: 1.15rem;
       font-weight: 600;
-      font-size: 1.1em;
+      color: #e2e8f0;
+      transition: transform 0.3s ease, background 0.3s ease;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
     }
-
+    .sensor:hover {
+      transform: scale(1.03);
+      background: #2563eb;
+      color: #fff;
+    }
     .value {
-      font-size: 1.1em;
-      color: #0077cc;
+      color: #93c5fd;
+      font-weight: 700;
+      opacity: 0;
+      animation: fadeIn 0.6s forwards;
     }
-
     .feedback-box {
-      margin-top: 30px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #2563eb, #60a5fa);
       padding: 20px;
-      background-color: #e0f7fa;
-      border-left: 5px solid #00acc1;
-      border-radius: 8px;
-      font-size: 1.1em;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 0 20px rgba(96, 165, 250, 0.6);
+      animation: pulseGlow 3s infinite ease-in-out;
+      min-height: 70px;
+      transition: opacity 0.3s ease-in-out;
     }
-
     .emoji {
-      font-size: 1.5em;
-      margin-right: 10px;
+      font-size: 1.5rem;
     }
 
-    @media (max-width: 600px) {
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+      }
+    }
+    @keyframes pulseGlow {
+      0%, 100% {
+        box-shadow: 0 0 12px #2563eb;
+      }
+      50% {
+        box-shadow: 0 0 30px #60a5fa;
+      }
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
       .container {
-        margin: 20px;
+        padding: 25px 20px;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      .sensor {
+        font-size: 1rem;
+      }
+      .feedback-box {
+        font-size: 1rem;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" role="main" aria-label="Smart E-Bike Dashboard">
     <h1>🚲 Smart E-Bike Dashboard</h1>
 
-    <div class="sensor"><span class="label">Speed:</span><span class="value" id="speed">--</span></div>
-    <div class="sensor"><span class="label">Battery:</span><span class="value" id="battery">--</span></div>
-    <div class="sensor"><span class="label">Terrain:</span><span class="value" id="terrain">--</span></div>
-    <div class="sensor"><span class="label">Temperature:</span><span class="value" id="temp">--</span></div>
+    <div class="sensor-list" aria-live="polite">
+      <div class="sensor">
+        <span class="label">Speed:</span>
+        <span class="value" id="speed">-- km/h</span>
+      </div>
+      <div class="sensor">
+        <span class="label">Battery:</span>
+        <span class="value" id="battery">-- %</span>
+      </div>
+      <div class="sensor">
+        <span class="label">Terrain:</span>
+        <span class="value" id="terrain">--</span>
+      </div>
+      <div class="sensor">
+        <span class="label">Temperature:</span>
+        <span class="value" id="temp">-- °C</span>
+      </div>
+    </div>
 
-    <div class="feedback-box" id="feedback">
-      <span class="emoji">💡</span> Waiting for real-time feedback...
+    <div class="feedback-box" id="feedback" aria-live="polite">
+      <span class="emoji">💡</span> Waiting for feedback...
     </div>
   </div>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
-    async function fetchSensorData() {
-      try {
-        const res = await fetch("http://localhost:8000/sensor-data", {
-      cache: "no-store"
-  });
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDSiyEn5IlCBL7hSzKR8pZXbQwPQqsfAbA",
+      authDomain: "smart-ebike-f4ba1.firebaseapp.com",
+      databaseURL: "https://smart-ebike-f4ba1-default-rtdb.firebaseio.com",
+      projectId: "smart-ebike-f4ba1",
+      storageBucket: "smart-ebike-f4ba1.appspot.com",
+      messagingSenderId: "117999975886",
+      appId: "1:117999975886:web:c509ff6bb1c65c3ed8bf9f"
+    };
 
-        const data = await res.json();
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-        document.getElementById("speed").textContent = data.speed + " km/h";
-        document.getElementById("battery").textContent = data.battery + "%";
-        document.getElementById("terrain").textContent = data.terrain;
-        document.getElementById("temp").textContent = data.temp + " °C";
-      } catch (error) {
-        console.error("Error fetching sensor data:", error);
+    // Update UI with animation
+    function updateValue(id, text) {
+      const el = document.getElementById(id);
+      if (el.textContent !== text) {
+        el.style.opacity = 0;
+        setTimeout(() => {
+          el.textContent = text;
+          el.style.opacity = 1;
+        }, 150);
       }
     }
 
+    // Listen for real-time updates from Firebase
+    db.ref("/sensors").on("value", (snapshot) => {
+      const data = snapshot.val() || {};
+      updateValue("speed", (data.speed ?? "--") + " km/h");
+      updateValue("battery", (data.battery ?? "--") + " %");
+      updateValue("terrain", data.terrain ?? "--");
+      updateValue("temp", (data.temp ?? "--") + " °C");
+    });
+
+    // Fetch feedback from FastAPI backend
     async function fetchFeedback() {
       try {
-        const res = await fetch("http://localhost:8000/feedback");
+        const res = await fetch("http://localhost:8000/feedback", { cache: "no-store" });
+        if (!res.ok) throw new Error("Network response was not ok");
         const data = await res.json();
-
-        document.getElementById("feedback").innerHTML =
-          `<span class="emoji">💡</span> ${data.feedback}`;
-      } catch (error) {
-        console.error("Error fetching feedback:", error);
-        document.getElementById("feedback").innerHTML =
-          `<span class="emoji">⚠️</span> Error fetching feedback`;
+        const fbEl = document.getElementById("feedback");
+        fbEl.style.opacity = 0;
+        setTimeout(() => {
+          fbEl.innerHTML = `<span class="emoji">💡</span> ${data.feedback}`;
+          fbEl.style.opacity = 1;
+        }, 150);
+      } catch (err) {
+        console.error("Feedback fetch error:", err);
+        document.getElementById("feedback").innerHTML = `<span class="emoji">⚠️</span> Error fetching feedback`;
       }
     }
 
-    // Faster polling for real-time sensor data
-    setInterval(fetchSensorData, 500);
-
-    // Slower polling for feedback to reduce LLM overhead
-    setInterval(fetchFeedback, 500);
-
-    // Initial calls
-    fetchSensorData();
+    // Run feedback fetch every 10 seconds
     fetchFeedback();
+    setInterval(fetchFeedback, 10000);
   </script>
 </body>
 </html>
